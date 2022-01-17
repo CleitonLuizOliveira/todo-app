@@ -4,22 +4,25 @@ import { createTodo } from './graphql/mutations';
 import { listTodos } from './graphql/queries';
 // import { withAuthenticator } from '@aws-amplify/ui-react';
 
+import './App.css';
+
 import awsExports from "./aws-exports";
 Amplify.configure(awsExports);
 
-const initialState = { name: '', description: '' };
-
 const App = () => {
-  const [formState, setFormState] = useState(initialState);
+  const [taskName, setTaskName] = useState('');
   const [todos, setTodos] = useState([]);
+  const [doneTasks, setDoneTasks] = useState([]);
+  const [undoneTasks, setUndoneTasks] = useState([]);
 
   useEffect(() => {
     fetchTodos();
   }, [])
 
-  function setInput(key, value) {
-    setFormState({ ...formState, [key]: value });
-  }
+  useEffect(() => {
+    setDoneTasks(todos.filter(todo => todo.checked === true));
+    setUndoneTasks(todos.filter(todo => todo.checked === false));
+  }, [todos]);
 
   async function fetchTodos() {
     try {
@@ -31,50 +34,67 @@ const App = () => {
 
   async function addTodo() {
     try {
-      if (!formState.name || !formState.description) return;
-      const todo = { ...formState };
+      if (!taskName) return;
+      const todo = { name: taskName, checked: false };
       setTodos([...todos, todo]);
-      setFormState(initialState);
+      setTaskName('');
       await API.graphql(graphqlOperation(createTodo, {input: todo}));
     } catch (err) {
       console.log('error creating todo:', err);
     }
   }
 
+  function checkTodo(todo) {
+    const newTodos = todos.map(element => {
+      if (element.name === todo.name) {
+        element.checked = !element.checked;
+      }
+      return element;
+    });
+    setTodos(newTodos);
+  }
+
+  function removeTodo(todo) {
+    const newTodos = todos.filter(element => element.name !== todo.name);
+    setTodos(newTodos);
+  }
+
   return (
-    <div>
-      <h2>My Taks</h2>
+    <main>
+      <h2>My Tasks</h2>
       <input
-        onChange={event => setInput('name', event.target.value)}
-        value={formState.name}
-        placeholder="Name"
+        onChange={event => setTaskName(event.target.value)}
+        value={taskName}
+        placeholder="Describe your task here"
+        onKeyUp={event => event.keyCode === 13 ? addTodo() : null}
       />
-      <input
-        onChange={event => setInput('description', event.target.value)}
-        value={formState.description}
-        placeholder="Description"
-      />
-      <button onClick={addTodo}>Create Task</button>
+      <button onClick={addTodo} className="todo_button">Create Task</button>
+      <div className="tasks_todo task_list">
+        {
+          undoneTasks.map((todo, index) => (
+            <div key={todo.id ? todo.id : index}>
+              <legend onClick={() => checkTodo(todo)}>{todo.name}</legend>
+              <button onClick={() => removeTodo(todo)}>x</button>
+            </div>
+            
+          ))
+        }
+      </div>
+      <div className="done_tasks task_list">
       {
-        todos.map((todo, index) => (
+        doneTasks.map((todo, index) => (
           <div key={todo.id ? todo.id : index}>
-            <p>{todo.name}</p>
-            <p >{todo.description}</p>
+            <legend onClick={() => checkTodo(todo)}>{todo.name}</legend>
+            <button onClick={() => removeTodo(todo)}>x</button>
           </div>
+          
         ))
       }
-    </div>
+      </div>
+      
+    </main>
   )
 }
-
-// const styles = {
-//   container: { width: 400, margin: '0 auto', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: 20 },
-//   todo: {  marginBottom: 15 },
-//   input: { border: 'none', backgroundColor: '#ddd', marginBottom: 10, padding: 8, fontSize: 18 },
-//   todoName: { fontSize: 20, fontWeight: 'bold' },
-//   todoDescription: { marginBottom: 0 },
-//   button: { backgroundColor: 'black', color: 'white', outline: 'none', fontSize: 18, padding: '12px 0px' }
-// }
 
 // export default withAuthenticator(App);
 export default App;
